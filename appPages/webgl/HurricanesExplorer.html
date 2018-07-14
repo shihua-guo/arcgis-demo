@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>12万条csv要素</title>
+  <link rel="shortcut icon" href="../../image/favicon.ico">
+  <link rel="stylesheet" href="./styles/dist/my-theme/main.css">
+  <link rel="stylesheet" href="./src/widgets/Header.css">
+  <link rel="stylesheet" href="./src/widgets/DropTarget.css">
+  <link rel="stylesheet" href="./src/widgets/IconButton.css">
+  <link rel="stylesheet" href="./src/widgets/ToggleIconButton.css">
+  <link rel="stylesheet" href="./src/widgets/HurricaneInfo.css">
+  <link rel="stylesheet" href="./src/HurricanesExplorer/app.css">
+  <style>
+    .esri-ui-bottom-left{
+      bottom: 40px !important;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- banner start -->
+  <div class="applicationBar orange" style="z-index: 10;position: absolute;width: 50%;height: 60px;">
+      <img src="../../image/banner.png" style="position:absolute;" />
+      <div class="main" style="margin-left: 110px;margin-top: -20px;">
+        <span style="margin-left: 130px;margin-top: -20px;">
+          <span style="position: absolute;top: 28px;left: 130px;
+          font-size: 20px;font-family: '微软雅黑';
+          font-weight: bold;
+          color: white;">文件图层支持WebGL渲染</span>
+      </div>
+  </div>
+  <!-- banner end -->
+
+  <div id="viewDiv">
+  </div>
+  <script src="src/loaderConfig.js"></script>
+  <!-- <script src="https://js.arcgis.com/4.7/dojo/dojo.js"></script> -->
+  <script src="../../libs/esri/4.7/init_esrijsapi.js"></script>
+</body>
+
+</html>

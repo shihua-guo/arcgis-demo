@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+
+  <title>便捷微件,即拿即用</title>
+  <link rel="shortcut icon" href="../../image/favicon.ico">
+  <link rel="stylesheet" href="../../libs/esri/4.7/esri/themes/dark/main.css">
+  <link rel="stylesheet" href="app/css/Bookmarks.css">
+  <!-- <link rel="stylesheet" href="../../libs/esri/4.7/esri/css/main.css"> -->
+  <!-- <link rel="stylesheet" href="../../libs/esri/4.7/dijit/themes/claro/claro.css"> -->
+  <!-- Load the Chart.js library -->
+  <script src="../../libs/Chart.js/2.4.0/Chart.min.js"></script>
+
+  <style>
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    #viewDiv {
+      position: absolute;
+      left: 0;
+      /* right: 380px; */
+      right: 0px;
+      top: 0;
+      bottom: 0;
+      height: 100%;
+    }
+
+    #panel {
+      position: absolute;
+      z-index: 100 !important;
+      right: 0;
+      height: 100%;
+      width: 380px;
+    }
+
+    .esri-ui-top-left {
+      top: 100px !important;
+    }
+
+    .esri-ui-top-right {
+      /* z-index: 100 !important; */
+      /* top: -14px !important; */
+      top: 100px !important;
+      /* right: -14px !important; */
+    }
+
+
+    .esri-widget--panel {
+      z-index: 100 !important;
+      width: 260px !important;
+    }
+
+    .esri-legend--card__section {
+      min-width: 320px;
+    }
+
+    .esri-popup {
+      z-index: 100 !important;
+      margin-top: 20px;
+    }
+
+    #id4domChart {
+      margin-left: -40px;
+    }
+    .esri-widget--panel{
+      max-height:600px !important;
+    }
+  </style>
+
+
+  <script>
+    const href = location.href;
+    const demoLocation = href.slice(0, href.lastIndexOf("/"));
+    var dojoConfig = {
+      async: true,
+      packages: [{
+        name: "demo",
+        location: demoLocation + "/app"
+      }],
+      has: {
+        "esri-featurelayer-webgl": 1
+      }
+    };
+  </script>
+
+  <!-- <script src="http://localhost/arcgis_js_api/4.7/init.js"></script> -->
+  <script src="../../libs/esri/4.7/init_esrijsapi.js"></script>
+
+  <script>
+    require([
+      "esri/WebMap",
+      "esri/views/MapView",
+      "esri/widgets/LayerList",
+      "esri/widgets/Legend",
+      "esri/widgets/Expand",
+      "esri/core/watchUtils",
+      "demo/Bookmarks",
+      "dojo/domReady!"
+    ], function (
+      WebMap, MapView, LayerList, Legend, Expand, watchUtils, Bookmarks
+    ) {
+        const map = new WebMap({
+          portalItem: {
+            id: "a0c00954915449a6a3032569f8a6a1ee" // online发布的服务
+          }
+        });
+
+        const view = new MapView({
+          container: "viewDiv",
+          map: map,
+          padding: {
+            // top: 100
+          }
+        });
+
+        //高性能查询 start
+        // helper function for returning a layer instance
+        // based on a given layer title
+        function findLayerByTitle(title) {
+          return view.map.allLayers.find(function (layer) {
+            console.log("layer.title:" + layer.title);
+            return layer.title === title;
+          });
+        }
+
+        // When the view loads, set up UI elements
+        let layerList, predominanceLayer;
+
+        view.when(function () {
+          // predominanceLayer = findLayerByTitle("Educational Attainment by City");
+          predominanceLayer = findLayerByTitle("受教育程度");
+          predominanceLayer.outFields = ["*"];
+
+          view.whenLayerView(predominanceLayer).then(function (layerView) {
+
+            // Create the pie chart when all the features draw in the view for the first time
+            let falseHandle = watchUtils.watch(layerView, "updating",
+              function (val) {
+                if (!val) {
+                  layerView.queryFeatureCount({
+                    where: "1=1"
+                  }).then(function (count) {
+                    if (count > 0) {
+                      falseHandle.remove();
+                      falseHandle = null;
+                      queryLayerViewStats(layerView).then(
+                        function (newData) {
+                          updateChart(newData);
+                        });
+                    }
+                  });
+                }
+              });
+
+            // Update the pie chart after the user stops panning or zooming
+            watchUtils.whenTrue(view, "stationary", function (val) {
+              queryLayerViewStats(layerView).then(function (newData) {
+                updateChart(newData);
+              });
+            });
+          });
+
+          // Add a LayerList instance to the view with
+          // custom text and a canvas element in the list item panel
+          // for rendering a chart to display query results
+          //微件 即拿即用 看看代码； 自定义微件 看看代码。
+          // const layerListExpand = new Expand({
+          //   content: new LayerList({
+          //     view: view,
+          //     listItemCreatedFunction: function (event) {
+          //       const item = event.item;
+          //       item.panel = {
+          //         content: "legend",
+          //         open: false
+          //       };
+          //     }
+          //   }),
+          //   view: view,
+          //   expanded: false
+          // });
+          // view.ui.add(layerListExpand, "top-right");
+
+          //图例微件  start
+          const legend = new Expand({
+            content: new Legend({
+              view: view,
+              style: "card"       //对比传统样式 classic
+            }),
+            view: view,
+            expanded: false
+          });
+          view.ui.add(legend, "bottom-right");
+          //图例微件  end
+
+          const dom4chart = document.createElement("canvas");
+          dom4chart.id = "id4domChart";
+          layerList = new LayerList({
+            view: view,
+            container: document.createElement("div"),
+            listItemCreatedFunction: function (event) {
+              const item = event.item;
+
+              // add the pie chart to the Predominance layer list item panel
+              if (item.title === predominanceLayer.title) {
+                item.panel = {
+                  content: [
+                    [
+                      "<b style='color:red'>受教育程度</b> 是指个人完成的最高教育程度。 ",
+                      "这张图表根据他们的教育程度",
+                      "将居住在当前视野范围内的人口分类。"
+                    ].join(""),
+
+                    dom4chart
+                  ],
+                  className: "esri-icon-pie-chart",
+                  open: false
+                };
+              } else {
+                item.panel = {
+                  content: "legend",
+                  open: false
+                };
+              }
+            }
+          });
+          layerList.container.style = "height: 100%";
+          const layerListExpand = new Expand({
+            content: layerList,
+            view: view,
+            expanded: false
+          });
+          view.ui.add(layerListExpand, "top-right");
+
+          // let panelDiv = document.getElementById("panel");
+          // panelDiv.appendChild(layerList.container);
+          //书签微件  start
+          const bookmarks = new Bookmarks({
+            view: view
+          });
+
+          const expand = new Expand({
+            view: view,
+            content: bookmarks
+          });
+
+          // view.ui.add(expand, "bottom-right");
+          view.ui.add(expand, "top-right");
+          //书签微件  end
+        });
+
+        // Query the layer view for statistics on each education variable in the layer
+        function queryLayerViewStats(layerView) {
+
+          const educationFields = ["EDUC01_CY", "EDUC02_CY", "EDUC03_CY",
+            "EDUC04_CY", "EDUC05_CY", "EDUC06_CY", "EDUC07_CY", "EDUC08_CY",
+            "EDUC09_CY", "EDUC10_CY", "EDUC11_CY", "EDUC12_CY", "EDUC13_CY",
+            "EDUC14_CY", "EDUC15_CY", "EDUC16_CY", "EDUCA_BASE"
+          ];
+
+          // Creates a query object for statistics of each of the fields listed above
+          const statDefinitions = educationFields.map(function (fieldName) {
+            return {
+              onStatisticField: fieldName,
+              outStatisticFieldName: fieldName + "_TOTAL",
+              statisticType: "sum"
+            };
+          });
+
+          // query statistics for features only in view extent
+          const query = layerView.layer.createQuery();
+          query.outStatistics = statDefinitions;
+          query.geometry = view.extent;
+
+          // query features within the view's extent on the client
+          return layerView.queryFeatures(query).then(function (response) {
+            const stats = response[0].attributes;
+
+            const updatedData = [
+              stats.EDUC01_CY_TOTAL, // no school  没上过学
+              // stats.EDUC02_CY_TOTAL, // preschool
+              stats.EDUC03_CY_TOTAL, // some elementary  小学未毕业
+              stats.EDUC04_CY_TOTAL + stats.EDUC07_CY_TOTAL, // elementary 小学
+              // stats.EDUC05_CY_TOTAL, // some secondary
+              stats.EDUC06_CY_TOTAL + stats.EDUC08_CY_TOTAL, // secondary 初中
+              stats.EDUC09_CY_TOTAL + stats.EDUC11_CY_TOTAL, // high school 高中
+              stats.EDUC10_CY_TOTAL + stats.EDUC12_CY_TOTAL + stats.EDUC13_CY_TOTAL +
+              stats.EDUC14_CY_TOTAL + stats.EDUC15_CY_TOTAL // college 大学
+              // stats.EDUC16_CY_TOTAL // not specified
+            ];
+
+            // data used to update the pie chart
+            return {
+              total: stats.EDUCA_BASE_TOTAL, // total population 12+
+              values: updatedData
+            };
+          });
+        }
+
+        // Create a chart to display in a LayerList panel
+        // The chart is created using the Chart.js library
+        let chart, totalCount;
+
+        function updateChart(response) {
+          const newData = response.values;
+          totalCount = response.total;
+          const title = "总共有" + numberWithCommas(totalCount) + " 人 (12岁以上)";
+          if (!chart) {
+            // get the canvas element created in the LayerList
+            // and use it to render the chart
+            const canvasElement = layerList.operationalItems.find(function (
+              item) {
+              return predominanceLayer.title === item.title;
+            }).panel.content[1];
+
+            chart = new Chart(canvasElement.getContext("2d"), {
+              type: "doughnut",
+              data: {
+                // labels: ["No school", "Preschool",
+                //   "Incomplete Elementary", "Elementary",
+                //   "Incomplete Secondary", "Secondary",
+                //   "High School", "College", "Not Specified"
+                // ],
+                labels: ["没上过学",
+                  "小学未毕业", "小学",
+                  "初中",
+                  "高中", "大学"
+                ],
+                datasets: [{
+                  label: "Population by educational attainment",
+                  // backgroundColor: ["#9e549c", "#f789d8", "#149dcf",
+                  //   "#ed5050", "#ffde3e", "#a6c736", "#b7804a",
+                  //   "#fc9220", "#9e9e9e"
+                  // ],
+                  backgroundColor: ["#996699", "#ff6666",
+                    "#99cc66", "#3399cc", "#ffcc66",
+                    "#ff9966"
+                  ],
+                  borderColor: "rgb(255, 255, 255)",
+                  borderWidth: 1,
+                  data: newData
+                }]
+              },
+              options: {
+                responsive: false,
+                cutoutPercentage: 35,
+                // Not an ArcGIS legend instance. This legend
+                // is constructed for the pie chart, not the
+                // features in the view, though the colors match
+                // the colors of the features displayed in the map view
+                legend: {
+                  position: "bottom"
+                },
+                title: {
+                  display: true,
+                  fontSize: 15,
+                  text: title
+                },
+                tooltips: {
+                  // define custom callback to format data values with commas and %
+                  callbacks: {
+                    label: function (tooltipItem, data) {
+                      const dataIndex = tooltipItem.index;
+                      const value = data.datasets[0].data[dataIndex];
+                      const percentage = totalCount > 0 ? Math.round((value / totalCount) * 100) : 0;
+                      return numberWithCommas(value) + " (" + percentage + "%)";
+                    }
+                  }
+                }
+              }
+            });
+          } else {
+            chart.options.title.text = title;
+            chart.data.datasets[0].data = newData;
+            chart.update();
+          }
+        }
+
+        // helper function for formatting number labels with commas
+        function numberWithCommas(value) {
+          value = value || 0;
+          return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        //高性能查询 end
+      });
+
+  </script>
+
+</head>
+
+<!-- <body class="claro"> -->
+
+<body>
+  <!-- banner start -->
+  <div class="applicationBar orange" style="z-index: 10;position: absolute;width: 80%;height: 60px;left: 60px;">
+    <img src="../../image/banner.png" style="position:absolute;" />
+    <div class="main" style="margin-left: 130px;margin-top: -20px;">
+      <span style="position: absolute;top: 28px;left: 130px;
+          font-size: 20px;font-family: '微软雅黑';
+          font-weight: bold;
+          color: white">开发便捷：微件即拿即用</span>
+    </div>
+  </div>
+  <!-- banner end -->
+  <div id="viewDiv"></div>
+  <!-- <div id="panel"></div> -->
+</body>
+
+</html>
